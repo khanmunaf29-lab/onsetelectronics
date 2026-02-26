@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onset Electronics</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{
+margin:0;
+font-family:'Segoe UI',sans-serif;
+background:linear-gradient(135deg,#141e30,#243b55);
+color:white;
+}
+header{
+text-align:center;
+padding:20px;
+background:#00000050;
+}
+section{
+background:white;
+color:black;
+margin:20px;
+padding:20px;
+border-radius:15px;
+box-shadow:0 10px 25px rgba(0,0,0,0.4);
+}
+input,button{
+padding:10px;
+margin:5px 0;
+width:100%;
+border-radius:8px;
+border:1px solid #ccc;
+}
+button{
+background:#243b55;
+color:white;
+border:none;
+cursor:pointer;
+}
+button:hover{
+background:#141e30;
+}
+.card{
+background:#f1f1f1;
+padding:10px;
+margin-top:10px;
+border-radius:10px;
+}
+.hidden{display:none;}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Onset Electronics</h1>
+<p>Second Hand Mobile Sale & Repair</p>
+<p>Diwan Market, Shop No 2, SS Road, Lakhtokia, Guwahati - 781001</p>
+<p>Phone: 9706322694</p>
+</header>
+
+<section id="loginSection">
+<h2>Admin Login</h2>
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</section>
+
+<section id="adminPanel" class="hidden">
+<h2>Add Mobile Stock</h2>
+<input type="text" id="mName" placeholder="Mobile Name">
+<input type="number" id="mPrice" placeholder="Price">
+<input type="file" id="mPhoto">
+<button onclick="addMobile()">Add Mobile</button>
+
+<h2>Repair Billing</h2>
+<input type="text" id="rName" placeholder="Customer Name">
+<input type="text" id="rWork" placeholder="Repair Work">
+<input type="number" id="rAmount" placeholder="Amount">
+<button onclick="addRepair()">Generate Repair Bill</button>
+</section>
+
+<section>
+<h2>Available Mobiles</h2>
+<div id="stock"></div>
+</section>
+
+<section>
+<h2>Daily Sale Report</h2>
+<div id="report"></div>
+</section>
+
+<script>
+let mobiles = JSON.parse(localStorage.getItem("mobiles")) || [];
+let sales = JSON.parse(localStorage.getItem("sales")) || [];
+
+function saveData(){
+localStorage.setItem("mobiles",JSON.stringify(mobiles));
+localStorage.setItem("sales",JSON.stringify(sales));
+}
+
+function login(){
+if(username.value==="admin" && password.value==="1234"){
+adminPanel.classList.remove("hidden");
+loginSection.classList.add("hidden");
+}else{
+alert("Wrong Login");
+}
+}
+
+function displayStock(){
+stock.innerHTML="";
+mobiles.forEach((m,index)=>{
+stock.innerHTML+=`
+<div class="card">
+<img src="${m.photo}" width="80"><br>
+<b>${m.name}</b><br>
+₹${m.price}<br>
+<button onclick="sellMobile(${index})">Sell & Download Bill</button>
+</div>`;
+});
+}
+
+function addMobile(){
+let file=mPhoto.files[0];
+if(mName.value && mPrice.value && file){
+let reader=new FileReader();
+reader.onload=function(e){
+mobiles.push({
+name:mName.value,
+price:mPrice.value,
+photo:e.target.result
+});
+saveData();
+displayStock();
+};
+reader.readAsDataURL(file);
+}
+}
+
+function sellMobile(index){
+let mobile=mobiles[index];
+let date=new Date().toLocaleDateString();
+
+sales.push({
+name:mobile.name,
+price:mobile.price,
+date:date
+});
+saveData();
+
+downloadPDFBill("Mobile Sale","Walk-in Customer",[
+{name:mobile.name,price:mobile.price}
+]);
+
+displayReport();
+}
+
+function addRepair(){
+let date=new Date().toLocaleDateString();
+
+sales.push({
+name:"Repair - "+rWork.value,
+price:rAmount.value,
+date:date
+});
+saveData();
+
+downloadPDFBill("Repair Bill",rName.value,[
+{name:rWork.value,price:rAmount.value}
+]);
+
+displayReport();
+}
+
+function displayReport(){
+report.innerHTML="";
+let today=new Date().toLocaleDateString();
+let total=0;
+
+sales.filter(s=>s.date===today).forEach(s=>{
+total+=parseInt(s.price);
+report.innerHTML+=`${s.name} - ₹${s.price}<br>`;
+});
+
+report.innerHTML+=`<h3>Total Today: ₹${total}</h3>`;
+}
+
+function downloadPDFBill(type,customer,items){
+const { jsPDF } = window.jspdf;
+const doc=new jsPDF();
+
+let date=new Date().toLocaleString();
+let y=70;
+let total=0;
+
+doc.setFontSize(18);
+doc.text("Onset Electronics",20,20);
+
+doc.setFontSize(11);
+doc.text("Diwan Market, Guwahati - 781001",20,30);
+doc.text("Phone: 9706322694",20,36);
+
+doc.line(20,45,190,45);
+
+doc.text("Bill Type: "+type,20,55);
+doc.text("Customer: "+customer,20,61);
+doc.text("Date: "+date,20,67);
+
+doc.line(20,72,190,72);
+
+items.forEach(item=>{
+doc.text(item.name,20,y);
+doc.text("Rs. "+item.price,150,y);
+total+=parseInt(item.price);
+y+=10;
+});
+
+doc.line(20,y,190,y);
+y+=10;
+
+doc.setFontSize(14);
+doc.text("Total Amount: Rs. "+total,20,y);
+
+doc.save("Onset_Electronics_Bill.pdf");
+}
+
+displayStock();
+displayReport();
+</script>
+
+</body>
+</html>
